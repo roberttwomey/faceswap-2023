@@ -176,83 +176,23 @@ def resizeToFit(image, height):
     return cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
 
 
-def process_target(base_img, target, base_landmarks, targetlandmarks):
-  img = source
-  img2_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-  img_target = img.copy()
-  img2_new_face = np.zeros_like(img)
-  if len(targetlandmarks) > 0:
-      points2 = np.array(targetlandmarks, np.int32)
-      convexhull2 = cv2.convexHull(points2)
+# from https://github.com/hermes7308/Realtime-Face-Swap/blob/main/realtime_face_swap_mediapipe.py
+def set_src_image(image):
+    global src_image, src_image_gray, src_mask, src_landmark_points, src_np_points, src_convexHull, indexes_triangles
+    src_image = image
+    src_image_gray = cv2.cvtColor(src_image, cv2.COLOR_BGR2GRAY)
+    src_mask = np.zeros_like(src_image_gray)
 
-      triangle_handler = triangulate_faces(base_landmarks,  base_img)
+    src_landmark_points = media_utils.get_landmark_points(src_image)
+    src_np_points = np.array(src_landmark_points)
+    src_convexHull = cv2.convexHull(src_np_points)
+    cv2.fillConvexPoly(src_mask, src_convexHull, 255)
 
-      # for triangle_index in triangle_handler["index"]:
-      #     # Triangulation of the first face
-      #     tpt1 = base_face_handler["landmarks"][triangle_index[0]]
-      #     tpt2 = base_face_handler["landmarks"][triangle_index[1]]
-      #     tpt3 = base_face_handler["landmarks"][triangle_index[2]]
-      #     triangle1 = np.array([tpt1, tpt2, tpt3], np.int32)
+    indexes_triangles = media_utils.get_triangles(convexhull=src_convexHull,
+                                                  landmarks_points=src_landmark_points,
+                                                  np_points=src_np_points)
 
-      #     rect1 = cv2.boundingRect(triangle1)
-      #     (x, y, w, h) = rect1
-      #     cropped_triangle = self.base_img[y: y + h, x: x + w]
-      #     cropped_tr1_mask = np.zeros((h, w), np.uint8)
 
-      #     points = np.array([[tpt1[0] - x, tpt1[1] - y],
-      #                        [tpt2[0] - x, tpt2[1] - y],
-      #                        [tpt3[0] - x, tpt3[1] - y]], np.int32)
-
-      #     cv2.fillConvexPoly(cropped_tr1_mask, points, 255)
-
-      #     # Triangulation of second face
-      #     t2pt1 = target_face_handler["landmarks"][triangle_index[0]]
-      #     t2pt2 = target_face_handler["landmarks"][triangle_index[1]]
-      #     t2pt3 = target_face_handler["landmarks"][triangle_index[2]]
-      #     triangle2 = np.array([t2pt1, t2pt2, t2pt3], np.int32)
-
-      #     rect2 = cv2.boundingRect(triangle2)
-      #     (x, y, w, h) = rect2
-
-      #     cropped_tr2_mask = np.zeros((h, w), np.uint8)
-
-      #     points2 = np.array([[t2pt1[0] - x, t2pt1[1] - y],
-      #                         [t2pt2[0] - x, t2pt2[1] - y],
-      #                         [t2pt3[0] - x, t2pt3[1] - y]], np.int32)
-
-      #     cv2.fillConvexPoly(cropped_tr2_mask, points2, 255)
-
-      #     # Warp triangles
-      #     points = np.float32(points)
-      #     points2 = np.float32(points2)
-      #     M = cv2.getAffineTransform(points, points2)
-      #     warped_triangle = cv2.warpAffine(cropped_triangle, M, (w, h),borderMode=cv2.BORDER_REPLICATE)
-      #     warped_triangle = cv2.bitwise_and(warped_triangle, warped_triangle, mask=cropped_tr2_mask)
-
-      #     # Reconstructing destination face
-      #     img2_new_face_rect_area = self.img2_new_face[y: y + h, x: x + w]
-      #     img2_new_face_rect_area_gray = cv2.cvtColor(img2_new_face_rect_area, cv2.COLOR_BGR2GRAY)
-      #     _, mask_triangles_designed = cv2.threshold(img2_new_face_rect_area_gray, 1, 255, cv2.THRESH_BINARY_INV)
-      #     warped_triangle = cv2.bitwise_and(warped_triangle, warped_triangle, mask=mask_triangles_designed)
-
-      #     img2_new_face_rect_area = cv2.add(img2_new_face_rect_area, warped_triangle)
-      #     self.img2_new_face[y: y + h, x: x + w] = img2_new_face_rect_area
-      # # Face swapped (putting 1st face into 2nd face)
-      # img2_face_mask = np.zeros_like(img2_gray)
-      # img2_head_mask = cv2.fillConvexPoly(img2_face_mask, convexhull2, 255)
-      # # cv2.imshow("pabit", img2_head_mask)
-      # img2_face_mask = cv2.bitwise_not(img2_head_mask)
-      # seam_clone = img.copy()
-      # self.img2_head_noface = cv2.bitwise_and(seam_clone, seam_clone, mask=img2_face_mask)
-
-      # cv2.imshow("no_Head", self.img2_head_noface)
-      # self.result = cv2.add(self.img2_head_noface, self.img2_new_face)
-
-      # (x, y, w, h) = cv2.boundingRect(convexhull2)
-      # center_face2 = (int((x + x + w) / 2), int((y + y + h) / 2))
-
-      # self.seamlessclone = cv2.seamlessClone(self.result, seam_clone,
-      #                                   img2_head_mask, center_face2, cv2.MIXED_CLONE)
 
 # ==== Read Input Image
 
@@ -262,7 +202,8 @@ def process_target(base_img, target, base_landmarks, targetlandmarks):
 # imshow(image_ori)
 
 # load video
-cap = cv2.VideoCapture('data/vollmann3.mov')
+# cap = cv2.VideoCapture('data/vollmann3.mov')
+cap = cv2.VideoCapture('data/john_allen_short.mp4')
 count = 0
 trackedpoints = {}
 
@@ -290,7 +231,9 @@ with mp_face_mesh.FaceMesh(
     refine_landmarks=True,
     max_num_faces=1,
     min_detection_confidence=0.5) as face_mesh:
-    
+    # git rid of globals
+    global src_image, src_image_gray, src_mask, src_landmark_points, src_np_points, src_convexHull, indexes_triangles
+
     face_mesh2 = mp_face_mesh.FaceMesh(
         static_image_mode=False,
         refine_landmarks=True,
@@ -299,7 +242,15 @@ with mp_face_mesh.FaceMesh(
 
     # loop over frames
     while cap.isOpened():
-        ret,frame = cap.read()
+        
+        # read from video
+        success, frame = cap.read()
+        if not success:
+           cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+           print("loop")
+           continue
+        
+        # read from webcam
         success, camimage = cap2.read()
 
         count = count + 1
@@ -398,7 +349,7 @@ with mp_face_mesh.FaceMesh(
                 .get_default_face_mesh_iris_connections_style())
 
         # do swapping
-        draw_subimage(camimage, seamlessclone)
+        # draw_subimage(camimage, seamlessclone)
 
         comp1 = resizeToFit(image, 360)
         comp2 = resizeToFit(camimage, 360)
